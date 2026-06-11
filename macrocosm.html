@@ -156,6 +156,24 @@
   .viz-btn:hover{filter:brightness(1.12)}
   .viz-out{margin-top:12px;font-size:13px;color:var(--muted);text-align:center;min-height:20px;line-height:1.4}
   .viz-out b{color:#8ff0cf;font-size:17px}
+  /* lead statement (hook) */
+  .lead{font-size:30px;line-height:1.4;color:var(--muted);font-weight:500}
+  .slide:not(.cover) .lead{font-size:34px}
+  .lead b{color:#fff;font-weight:700}
+  /* hero number + result card */
+  .heronum{font-size:120px;font-weight:800;line-height:.92;letter-spacing:-.03em;
+    background:linear-gradient(95deg,#fff,#8ff0cf);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .heronum small{display:block;font-size:22px;font-weight:700;color:var(--good);letter-spacing:.01em;margin-top:10px}
+  .rcard{background:rgba(10,14,30,.72);border:1px solid var(--line);border-radius:18px;padding:10px 26px}
+  .rcard .rrow{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .rcard .rrow:last-of-type{border-bottom:none}
+  .rcard .rk{font-size:19px;color:var(--muted)}
+  .rcard .rv{font-size:21px;color:#fff;font-weight:700;font-family:"SF Mono",Menlo,monospace}
+  .rcard .rv.good{color:#8ff0cf}
+  .rcard .rv.tag{background:rgba(91,140,255,.18);border:1px solid rgba(91,140,255,.45);color:#bcd0ff;border-radius:8px;padding:3px 12px;font-size:17px}
+  .rcard .rexp{margin:16px 0;border-left:3px solid var(--good);padding:12px 16px;background:rgba(67,214,160,.07);
+    border-radius:0 10px 10px 0;font-size:19px;color:var(--ink);line-height:1.5}
+  .rcard .rexp b{color:#8ff0cf}
 </style>
 </head>
 <body>
@@ -170,12 +188,41 @@
     <div class="cover-inner">
       <div class="eyebrow">Le Wagon · Data Science</div>
       <h1 class="cover-title">Macrocosm</h1>
-      <div class="cover-tag">Predicting galaxy redshift from astronomical images with machine learning</div>
+      <div class="cover-tag">How far away is that galaxy? Reading cosmic distance from a single photo — with machine learning.</div>
       <div class="cover-by">Pitched by <b>Hang</b></div>
     </div>
   </section>
 
-  <!-- ===== PAGE 1: PRIMARY — Redshift ===== -->
+  <!-- ===== PAGE 1: HOOK — why distance is hard ===== -->
+  <section class="slide">
+    <h1>How far away is that galaxy?</h1>
+    <div class="sub">Distance is the hardest thing to measure in astronomy — and the key to almost everything else.</div>
+    <div class="row">
+      <div class="box">
+        <h3>The exact way — spectroscopy</h3>
+        <p>Split a galaxy's light into a spectrum and read its <b class="hl">redshift</b>. Accurate to <b class="hl">0.0001</b> — but <b class="hl">slow &amp; expensive</b>: a few targets at a time, hours of telescope time each.</p>
+      </div>
+      <div class="box">
+        <h3>The cheap way — a picture</h3>
+        <p>Surveys already photograph <b class="hl">billions</b> of galaxies in 5 color filters. The distance is <b class="hl">hidden in the pixels</b> — we just can't read it by eye.</p>
+      </div>
+    </div>
+    <div class="box">
+      <h3>The idea</h3>
+      <p class="lead">Teach a model to predict the expensive spectroscopic redshift <b>straight from the cheap image</b> — turning an hours-long measurement into <b>milliseconds</b>.</p>
+    </div>
+  </section>
+
+  <!-- ===== PAGE 2: INTUITION — the signal by eye ===== -->
+  <section class="slide">
+    <span class="badge p">The signal, by eye</span>
+    <h1>You can almost <i>see</i> the distance</h1>
+    <div class="sub">15 real SDSS galaxies, ordered by their true redshift — watch them shrink and redden as they get farther away</div>
+    <img class="sample" src="img/dr17_gallery.png" alt="Real SDSS DR17 galaxy cutouts ordered by redshift">
+    <p class="imgcap">That visible trend — fainter, smaller, redder with distance — <b class="hl">is</b> what the model learns to read. No spectrum needed.</p>
+  </section>
+
+  <!-- ===== PAGE 3: PRIMARY — Redshift ===== -->
   <section class="slide">
     <span class="badge p">Primary Goal</span>
     <h1>Predicting Galaxy Redshift from Astronomical Images</h1>
@@ -203,20 +250,15 @@ X_tab (N,<span class="v">13</span>)   X_img (N,<span class="v">64,64,5</span>)  
     </div>
   </section>
 
-  <!-- ===== PAGE 2: REAL DATA SAMPLES from DR17 ===== -->
+  <!-- ===== PAGE 4: THE MODEL INPUT — 5 channels ===== -->
   <section class="slide">
-    <span class="badge p">Primary Goal · Real Data</span>
-    <h1>What the data actually looks like</h1>
-    <div class="sub">Live pull from SDSS DR17 — galaxies spanning the redshift range we want to predict</div>
+    <span class="badge p">Primary Goal · The Input</span>
+    <h1>One galaxy, five filters</h1>
+    <div class="sub">What we actually feed the model — pulled live from SDSS DR17 via <code>astroquery</code></div>
     <div class="box">
-      <h3>ugriz image cutouts <span class="realtag">pulled via astroquery</span></h3>
-      <img class="sample" src="img/dr17_gallery.png" alt="Real SDSS DR17 galaxy cutouts across redshift">
-      <p class="imgcap">Same physical objects, increasing z → smaller &amp; redder. That trend <b class="hl">is</b> the signal the model learns. 64×64 stamps centered on each galaxy via WCS.</p>
-    </div>
-    <div class="box">
-      <h3>One galaxy, five filters → the model input</h3>
+      <h3>ugriz cutouts → the model input <span class="realtag">pulled via astroquery</span></h3>
       <img class="sample" src="img/ugriz_strip.png" alt="ugriz five-band view of one galaxy">
-      <p class="imgcap">Every object is imaged in 5 bands (u g r i z). Stack them → <code>X_img = (64, 64, 5)</code>. Brightness/shape shifts across bands encode redshift.</p>
+      <p class="imgcap">Every object is imaged in 5 bands (u g r i z). Stack them → <code>X_img = (64, 64, 5)</code>. The brightness &amp; shape shifts across bands are what encode redshift — invisible to the eye, learnable by a CNN.</p>
     </div>
   </section>
 
@@ -289,6 +331,26 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
       </div>
     </div>
     <p class="note warn">Guardrail: observed-frame inputs only — never feed <code>absMag</code>/<code>kcorr</code> (derived from z → leakage). Stretch images, augment with flips/rotations.</p>
+  </section>
+
+  <!-- ===== PAGE: HERO NUMBER + RESULT CARD ===== -->
+  <section class="slide">
+    <span class="badge p">What good looks like</span>
+    <h1>One image in, a distance out</h1>
+    <div class="sub">The accuracy we're aiming for — and the kind of answer the model returns for a single galaxy</div>
+    <div class="row" style="align-items:center">
+      <div style="text-align:center;padding:10px 0">
+        <div class="heronum">&lt; 1%<small>redshift error &nbsp;(σ<sub>MAD</sub> &lt; 0.01)</small></div>
+        <p class="note">Benchmark from <b style="color:#cfe0ff">Pasquet et al. 2019</b> on SDSS imaging — what a strong CNN reaches predicting z from pixels alone, <b style="color:#cfe0ff">no spectrum</b>. That's our target.</p>
+      </div>
+      <div class="rcard">
+        <div class="rrow"><span class="rk">Galaxy</span><span class="rv">SDSS J1542+0203</span></div>
+        <div class="rrow"><span class="rk">Predicted ẑ</span><span class="rv good">0.231</span></div>
+        <div class="rrow"><span class="rk">Distance</span><span class="rv">≈ 2.9 Gly</span></div>
+        <div class="rrow"><span class="rk">Input</span><span class="rv tag">64 × 64 × 5 image</span></div>
+        <div class="rexp">Estimated straight from imaging in <b>~8 ms</b> — versus hours of spectroscopy for the same galaxy.</div>
+      </div>
+    </div>
   </section>
 
   <!-- ===== PAGE 5: 3D EXPLORER (concept webapp) ===== -->
