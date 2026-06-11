@@ -121,6 +121,41 @@
   .slide:not(.cover) .t{font-size:20px;padding:5px 0 5px 34px}
   .slide:not(.cover) .t::before{font-size:21px;left:3px;top:3px}
   .slide:not(.cover) .day{font-size:17px;padding:3px 13px}
+  /* images + diagrams */
+  img.sample{width:100%;border-radius:12px;border:1px solid var(--line);display:block;background:#070b1a}
+  .imgcap{font-size:13px;color:var(--muted);margin-top:9px;text-align:center;line-height:1.45}
+  .slide:not(.cover) .imgcap{font-size:18px;margin-top:12px}
+  .diagram{display:block;width:100%;background:rgba(0,0,0,.34);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin-top:8px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;line-height:1.7;color:#cfe0ff;overflow:auto;white-space:pre}
+  .slide:not(.cover) .diagram{font-size:19px;padding:24px 26px;border-radius:16px}
+  .diagram .b1{color:#bcd0ff} .diagram .b2{color:#8ff0cf} .diagram .ar{color:#7f8db5} .diagram .out{color:#ffd699}
+  /* ===== 3D explorer slide ===== */
+  .slide.viz{padding:0;overflow:hidden;position:relative;width:min(1620px,97vw);height:90vh;max-height:90vh}
+  #c3d{display:block;width:100%;height:100%;cursor:grab}
+  #c3d:active{cursor:grabbing}
+  .viz-hud{position:absolute;left:26px;top:22px;z-index:3;pointer-events:none}
+  .viz-hud .vt{font-size:25px;font-weight:800;letter-spacing:-.01em;color:#fff}
+  .viz-hud .vt span{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.14em;text-transform:uppercase;margin-left:6px}
+  .viz-hud .vs{font-size:14px;color:var(--muted);margin-top:5px;max-width:42ch}
+  .viz-help{position:absolute;left:26px;bottom:20px;z-index:3;pointer-events:none;font-size:13.5px;color:var(--muted);
+    background:rgba(8,12,28,.55);border:1px solid var(--line);border-radius:10px;padding:8px 13px;line-height:1.6}
+  .viz-help b{color:#cfe0ff}
+  .viz-form{position:absolute;right:22px;top:22px;z-index:3;width:326px;background:rgba(8,12,28,.84);
+    border:1px solid var(--line);border-radius:16px;padding:17px 19px;backdrop-filter:blur(10px);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+  .viz-form h4{font-size:16px;color:#fff;margin-bottom:3px}
+  .viz-form .fsub{font-size:12px;color:var(--muted);margin-bottom:13px;line-height:1.4}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:11px}
+  .fgrid label{font-size:10.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px;text-transform:uppercase;letter-spacing:.04em}
+  .fgrid input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:7px;
+    color:#fff;font-size:12.5px;padding:6px;font-family:"SF Mono",Menlo,monospace;outline:none}
+  .fgrid input:focus{border-color:var(--accent)}
+  .viz-file{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .viz-file input{font-size:11px;color:var(--muted);width:100%;margin-top:5px}
+  .viz-btn{width:100%;border:none;border-radius:10px;padding:11px;font-size:14.5px;font-weight:700;color:#fff;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));transition:.15s}
+  .viz-btn:hover{filter:brightness(1.12)}
+  .viz-out{margin-top:12px;font-size:13px;color:var(--muted);text-align:center;min-height:20px;line-height:1.4}
+  .viz-out b{color:#8ff0cf;font-size:17px}
 </style>
 </head>
 <body>
@@ -168,6 +203,120 @@ X_tab (N,<span class="v">13</span>)   X_img (N,<span class="v">64,64,5</span>)  
     </div>
   </section>
 
+  <!-- ===== PAGE 2: REAL DATA SAMPLES from DR17 ===== -->
+  <section class="slide">
+    <span class="badge p">Primary Goal · Real Data</span>
+    <h1>What the data actually looks like</h1>
+    <div class="sub">Live pull from SDSS DR17 — galaxies spanning the redshift range we want to predict</div>
+    <div class="box">
+      <h3>ugriz image cutouts <span class="realtag">pulled via astroquery</span></h3>
+      <img class="sample" src="img/dr17_gallery.png" alt="Real SDSS DR17 galaxy cutouts across redshift">
+      <p class="imgcap">Same physical objects, increasing z → smaller &amp; redder. That trend <b class="hl">is</b> the signal the model learns. 64×64 stamps centered on each galaxy via WCS.</p>
+    </div>
+    <div class="box">
+      <h3>One galaxy, five filters → the model input</h3>
+      <img class="sample" src="img/ugriz_strip.png" alt="ugriz five-band view of one galaxy">
+      <p class="imgcap">Every object is imaged in 5 bands (u g r i z). Stack them → <code>X_img = (64, 64, 5)</code>. Brightness/shape shifts across bands encode redshift.</p>
+    </div>
+  </section>
+
+  <!-- ===== PAGE 3: ASTROQUERY USAGE ===== -->
+  <section class="slide">
+    <span class="badge p">Primary Goal · Data Access</span>
+    <h1>Pulling the data with <code>astroquery</code></h1>
+    <div class="sub">Two calls build the whole dataset: one SQL join for labels + features, one image fetch per object</div>
+    <div class="row">
+      <div class="box">
+        <h3>1 · Tabular — SQL join PhotoObj × SpecObj</h3>
+        <pre><span class="c"># spectroscopic z (label) + photometry (features)</span>
+<span class="k">SELECT TOP</span> 100000
+  p.objid, p.ra, p.dec,
+  p.modelMag_u, p.modelMag_g, p.modelMag_r,
+  p.modelMag_i, p.modelMag_z, p.petroR50_r,
+  p.run, p.camcol, p.field,      <span class="c"># locate frames</span>
+  s.z <span class="k">AS</span> redshift
+<span class="k">FROM</span> PhotoObj p
+<span class="k">JOIN</span> SpecObj s <span class="k">ON</span> s.bestObjID = p.objID
+<span class="k">WHERE</span> s.class=<span class="v">'GALAXY'</span> <span class="k">AND</span> s.zWarning=0
+  <span class="k">AND</span> p.clean=1
+  <span class="k">AND</span> s.z <span class="k">BETWEEN</span> 0.02 <span class="k">AND</span> 0.35</pre>
+      </div>
+      <div class="box">
+        <h3>2 · Image — 64×64 ugriz cutout per galaxy</h3>
+        <pre><span class="k">from</span> astroquery.sdss <span class="k">import</span> SDSS
+<span class="k">from</span> astropy.coordinates <span class="k">import</span> SkyCoord
+<span class="k">from</span> astropy.nddata <span class="k">import</span> Cutout2D
+<span class="k">import</span> astropy.units <span class="k">as</span> u
+
+tab = SDSS.query_sql(sql, data_release=<span class="v">17</span>)
+
+<span class="k">def</span> cutout(ra, dec, band):
+    pos = SkyCoord(ra, dec, unit=<span class="v">'deg'</span>)
+    hdu = SDSS.get_images(coordinates=pos, band=band,
+            radius=<span class="v">8</span>*u.arcsec, data_release=<span class="v">17</span>)[<span class="v">0</span>]
+    w = WCS(hdu[<span class="v">0</span>].header)
+    <span class="k">return</span> Cutout2D(hdu[<span class="v">0</span>].data, pos,
+                    (<span class="v">64</span>,<span class="v">64</span>), wcs=w).data
+
+img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in</span> <span class="v">'ugriz'</span>], -1)</pre>
+      </div>
+    </div>
+    <p class="note">✅ Verified end-to-end on DR17 — sample of 200 galaxies (z 0.02–0.35) + cutouts already pulled. astroquery caches frames locally, so re-runs are free.</p>
+  </section>
+
+  <!-- ===== PAGE 4: INITIAL MODEL DESIGN ===== -->
+  <section class="slide">
+    <span class="badge p">Primary Goal · Model</span>
+    <h1>Initial model design</h1>
+    <div class="sub">Tabular baseline first for a fast benchmark → CNN on images → fuse both into one regressor</div>
+    <div class="box">
+      <h3>Architecture — two branches, one redshift head</h3>
+      <div class="diagram"><span class="b1">X_img (64,64,5)</span> ──► [ Conv×4 → BN → GlobalAvgPool ] ──► <span class="b1">img_feat (128)</span>
+                                                    │
+                                                    ▼  <span class="ar">concat</span>
+<span class="b2">X_tab (13)</span> ──────────► [ StandardScaler / BN ] ──────► [ Dense 64 → Dense 32 ] ──► <span class="out">ẑ  (redshift)</span></div>
+    </div>
+    <div class="row">
+      <div class="box">
+        <h3>Baseline → Main</h3>
+        <p><b class="hl">Baseline:</b> XGBoost on the 13 tabular features → z. Trains in seconds, sets the bar &amp; wires the webapp early.</p>
+        <p style="margin-top:10px"><b class="hl">Main:</b> small CNN on (64,64,5) arcsinh-stretched cutouts, then <b class="hl">fuse</b> image features + tabular into a dense head.</p>
+      </div>
+      <div class="box">
+        <h3>Training &amp; metrics</h3>
+        <p>Loss: <code>Huber</code>/MSE on z · Adam + early stopping · split 70/15/15.</p>
+        <p style="margin-top:10px">Report <b class="hl">σ_MAD</b>, bias ⟨Δz⟩, outlier rate (|Δz|/(1+z)&gt;0.05), and a <b class="hl">z_pred vs z_spec</b> scatter. Target σ_MAD &lt; 0.01.</p>
+      </div>
+    </div>
+    <p class="note warn">Guardrail: observed-frame inputs only — never feed <code>absMag</code>/<code>kcorr</code> (derived from z → leakage). Stretch images, augment with flips/rotations.</p>
+  </section>
+
+  <!-- ===== PAGE 5: 3D EXPLORER (concept webapp) ===== -->
+  <section class="slide viz" id="slide3d">
+    <canvas id="c3d"></canvas>
+    <div class="viz-hud">
+      <div class="vt">Macrocosm Explorer <span>concept</span></div>
+      <div class="vs">Earth at the center · 15 real SDSS galaxies placed by predicted redshift — closer = lower z, farther = higher z.</div>
+    </div>
+    <form class="viz-form" id="zform" autocomplete="off">
+      <h4>Predict &amp; place a galaxy</h4>
+      <div class="fsub">Enter photometry + a 64×64 cutout. The model returns ẑ → we drop the image into 3D at its distance. <i>(demo: ẑ is mocked)</i></div>
+      <div class="fgrid">
+        <label>mag_u<input type="number" step="0.01" name="mag_u" value="19.4"></label>
+        <label>mag_g<input type="number" step="0.01" name="mag_g" value="18.1"></label>
+        <label>mag_r<input type="number" step="0.01" name="mag_r" value="17.3"></label>
+        <label>mag_i<input type="number" step="0.01" name="mag_i" value="16.9"></label>
+        <label>mag_z<input type="number" step="0.01" name="mag_z" value="16.6"></label>
+        <label>size_r<input type="number" step="0.1" name="size_r" value="3.2"></label>
+      </div>
+      <div class="viz-file">64×64 image (ugriz cutout / any PNG)
+        <input type="file" id="imgfile" accept="image/*"></div>
+      <button class="viz-btn" type="submit">Predict ẑ &amp; place →</button>
+      <div class="viz-out" id="zout">awaiting input…</div>
+    </form>
+    <div class="viz-help"><b>Right-drag</b> rotate · <b>Middle-drag</b> pan · <b>Wheel</b> zoom</div>
+  </section>
+
   <!-- ===== PAGE 1b: TASKS — primary goal pipeline ===== -->
   <section class="slide">
     <span class="badge p">Primary Goal · Tasks</span>
@@ -213,62 +362,6 @@ X_tab (N,<span class="v">13</span>)   X_img (N,<span class="v">64,64,5</span>)  
     </div>
   </section>
 
-  <!-- ===== PAGE 2: SECONDARY — Transit FP vetting ===== -->
-  <section class="slide s">
-    <span class="badge s">Secondary Goal · if primary done with time left</span>
-    <h1>Vetting False Positives in Transit Light Curves</h1>
-    <div class="sub">Classical BLS/TLS finds the dip — ML decides: real planet or false positive?</div>
-    <div class="row">
-      <div class="box">
-        <h3>Background</h3>
-        <p>A planet crossing its star dims it periodically. Finding the dip is <b class="hl">solved by BLS/TLS</b>. The hard part is the <b class="hl">false positives</b> — mostly eclipsing binaries that mimic the same dip.</p>
-      </div>
-      <div class="box">
-        <h3>Model Value</h3>
-        <p>Vetting was done by humans / decision trees — doesn't scale to millions of TESS candidates. ML learns the subtle tells (V-vs-U shape, secondary eclipse, odd-even depth) to <b class="hl">auto-triage at scale</b>.</p>
-      </div>
-    </div>
-    <div class="box">
-      <h3>Data Source &amp; Shape <span class="realtag">real sample pulled</span></h3>
-      <p class="src">Source: light curves from <b>MAST</b> via <code>lightkurve</code> · labels: <b>NASA Exoplanet Archive — KOI</b> (<code>koi_disposition</code>) / AstroNet DR24 TCE</p>
-      <table class="data">
-        <tr><th>kepoi</th><th>period(d)</th><th>dur(h)</th><th>depth(ppm)</th><th>prad(R⊕)</th><th>snr</th><th>fp_ss</th><th>label (y)</th></tr>
-        <tr><td>K00752.01</td><td>9.488</td><td>2.96</td><td>616</td><td>2.26</td><td>35.8</td><td>0</td><td class="g">CONFIRMED</td></tr>
-        <tr><td>K00754.01</td><td>1.737</td><td>2.41</td><td>8079</td><td>33.46</td><td>505.6</td><td>1</td><td class="r">FALSE POSITIVE</td></tr>
-      </table>
-      <pre><span class="c"># folded light curve views + tabular ; y from label</span>
-X_global (N,<span class="v">2001</span>)  X_local (N,<span class="v">201</span>)  X_tab (N,<span class="v">~20</span>)  y = PLANET / <span class="k">FP</span>
-labels: CONFIRMED <span class="v">2747</span> · CANDIDATE 1978 · FALSE POSITIVE <span class="v">4839</span></pre>
-    </div>
-  </section>
-
-  <!-- ===== PAGE 3: BACKUP — Anomaly detection ===== -->
-  <section class="slide b">
-    <span class="badge b">Backup Goal</span>
-    <h1>Unsupervised Detection of Anomalous Objects</h1>
-    <div class="sub">Let the model rank the universe by "weirdness" and surface candidates for follow-up</div>
-    <div class="row">
-      <div class="box">
-        <h3>Background</h3>
-        <p>Surveys catalog billions of objects — almost all ordinary. The discoveries (rare quasars, odd galaxies, new classes) hide in the <b class="hl">outliers</b>. No labels exist for "interesting".</p>
-      </div>
-      <div class="box">
-        <h3>Model Value</h3>
-        <p>An <b class="hl">autoencoder</b> learns to reconstruct normal objects; high reconstruction error = anomaly. Surfaces the rare few from millions <b class="hl">without any labels</b>, for humans to inspect.</p>
-      </div>
-    </div>
-    <div class="box">
-      <h3>Data Source &amp; Shape <span class="realtag">same SDSS feed</span></h3>
-      <p class="src">Source: <b>SDSS DR17</b> photometry/spectra via <code>astroquery.sdss</code> · or <b>Gaia DR3</b> via <code>astroquery.gaia</code></p>
-      <table class="data">
-        <tr><th>objid</th><th>mag_u</th><th>mag_g</th><th>mag_r</th><th>mag_i</th><th>mag_z</th><th>u−g</th><th>g−r</th><th>label</th></tr>
-        <tr><td>1237668271910748532</td><td>21.63</td><td>19.63</td><td>18.14</td><td>17.61</td><td>17.27</td><td>2.00</td><td>1.49</td><td class="lab">— none —</td></tr>
-      </table>
-      <pre><span class="c"># unsupervised — no y ; output = anomaly score</span>
-X_tab (N,<span class="v">~15</span>)   or   X_spec (N,<span class="v">~3500</span>)   <span class="k">y = none</span>   →  anomaly_score (N,)</pre>
-    </div>
-  </section>
-
 </div>
 
 <div class="bar">
@@ -300,6 +393,7 @@ X_tab (N,<span class="v">~15</span>)   or   X_spec (N,<span class="v">~3500</spa
   function go(n){i=Math.max(0,Math.min(slides.length-1,n));render();}
   nextBtn.onclick=()=>go(i+1); prevBtn.onclick=()=>go(i-1);
   document.addEventListener('keydown',e=>{
+    if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return; // don't hijack form typing
     if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(i+1);}
     if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(i-1);}
     if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);

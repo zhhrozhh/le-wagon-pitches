@@ -1,0 +1,107 @@
+[
+{
+"file": "img/galaxies/g01.png",
+"z": 0.0297,
+"ra": 206.3138,
+"dec": 23.3165,
+"mag_r": 14.86
+},
+{
+"file": "img/galaxies/g02.png",
+"z": 0.0459,
+"ra": 223.5678,
+"dec": 16.9028,
+"mag_r": 16.54
+},
+{
+"file": "img/galaxies/g03.png",
+"z": 0.0622,
+"ra": 322.2961,
+"dec": 10.527,
+"mag_r": 15.44
+},
+{
+"file": "img/galaxies/g04.png",
+"z": 0.0783,
+"ra": 354.586,
+"dec": -11.0057,
+"mag_r": 17.11
+},
+{
+"file": "img/galaxies/g05.png",
+"z": 0.0932,
+"ra": 180.583,
+"dec": 56.5727,
+"mag_r": 16.32
+},
+{
+"file": "img/galaxies/g06.png",
+"z": 0.1088,
+"ra": 258.8099,
+"dec": 32.9901,
+"mag_r": 16.29
+},
+{
+"file": "img/galaxies/g07.png",
+"z": 0.1233,
+"ra": 174.3606,
+"dec": 52.7828,
+"mag_r": 17.76
+},
+{
+"file": "img/galaxies/g08.png",
+"z": 0.1398,
+"ra": 155.7196,
+"dec": 12.6589,
+"mag_r": 16.59
+},
+{
+"file": "img/galaxies/g09.png",
+"z": 0.1596,
+"ra": 241.095,
+"dec": 30.0402,
+"mag_r": 17.45
+},
+{
+"file": "img/galaxies/g10.png",
+"z": 0.1764,
+"ra": 202.5979,
+"dec": 48.483,
+"mag_r": 17.43
+},
+{
+"file": "img/galaxies/g11.png",
+"z": 0.1861,
+"ra": 154.8596,
+"dec": 8.1157,
+"mag_r": 17.13
+},
+{
+"file": "img/galaxies/g12.png",
+"z": 0.2085,
+"ra": 331.3649,
+"dec": 2.4719,
+"mag_r": 17.54
+},
+{
+"file": "img/galaxies/g13.png",
+"z": 0.2268,
+"ra": 257.6316,
+"dec": 44.4615,
+"mag_r": 17.09
+},
+{
+"file": "img/galaxies/g14.png",
+"z": 0.2411,
+"ra": 19.8089,
+"dec": 27.4085,
+"mag_r": 17.78
+},
+{
+"file": "img/galaxies/g15.png",
+"z": 0.2551,
+"ra": 152.5102,
+"dec": 48.1102,
+"mag_r": 17.46
+}
+]
