@@ -232,35 +232,7 @@
     <p class="imgcap">That visible trend — fainter, smaller, redder with distance — <b class="hl">is</b> what the model learns to read. No spectrum needed.</p>
   </section>
 
-  <!-- ===== PAGE 3: PRIMARY — Redshift ===== -->
-  <section class="slide">
-    <span class="badge p">Primary Goal</span>
-    <h1>Predicting Galaxy Redshift from Astronomical Images</h1>
-    <div class="sub">Estimate redshift (distance) directly from cheap imaging with machine learning</div>
-    <div class="row">
-      <div class="box">
-        <h3>Background</h3>
-        <p>Redshift <b class="hl">z</b> tells a galaxy's distance &amp; recession velocity — the backbone of cosmology. The exact way to get it is <b class="hl">spectroscopy</b>: accurate but slow &amp; expensive, only a few targets at a time.</p>
-      </div>
-      <div class="box">
-        <h3>Model Value</h3>
-        <p>Imaging is <b class="hl">cheap &amp; everywhere</b> — every object already has it. We learn to predict the expensive spectroscopic <b class="hl">z</b> from cheap photometry/images. <span class="mut">Benchmark: σ_MAD &lt; 0.01 (Pasquet 2019).</span></p>
-      </div>
-    </div>
-    <div class="box">
-      <h3>Data Source &amp; Shape <span class="realtag">real sample pulled</span></h3>
-      <p class="src">Source: <b>SDSS DR17</b> via <code>astroquery.sdss</code> — SQL join <code>PhotoObj × SpecObj</code> · ~100k galaxies, z&lt;0.4</p>
-      <table class="data">
-        <tr><th>objid</th><th>ra</th><th>dec</th><th>mag_u</th><th>mag_g</th><th>mag_r</th><th>mag_i</th><th>mag_z</th><th>redshift (y)</th><th>class</th></tr>
-        <tr><td>1237668271910748532</td><td>231.336</td><td>14.080</td><td>21.63</td><td>19.63</td><td>18.14</td><td>17.61</td><td>17.27</td><td class="g">0.2371</td><td class="lab">GALAXY</td></tr>
-      </table>
-      <pre><span class="c"># X = 5 mags + 4 colors + size ;  image = ugriz cutout</span>
-X_tab (N,<span class="v">13</span>)   X_img (N,<span class="v">64,64,5</span>)   y (N,) = redshift   <span class="c"># supervised regression</span></pre>
-      <p class="note warn">Observed-frame features only — no <code>absMag</code>/<code>kcorr</code> (computed from z → leakage).</p>
-    </div>
-  </section>
-
-  <!-- ===== PAGE 4: THE MODEL INPUT — 5 channels ===== -->
+  <!-- ===== PAGE 3: THE MODEL INPUT — 5 channels ===== -->
   <section class="slide">
     <span class="badge p">Primary Goal · The Input</span>
     <h1>One galaxy, five filters</h1>
