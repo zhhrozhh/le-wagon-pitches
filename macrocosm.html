@@ -400,5 +400,201 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
   });
   render();
 </script>
+
+<!-- ===== 3D explorer (Three.js) ===== -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// --- real SDSS DR17 sample (image + redshift), generated offline via astroquery ---
+const GALAXIES = [
+{"file":"img/galaxies/g01.png","z":0.0297},{"file":"img/galaxies/g02.png","z":0.0459},
+{"file":"img/galaxies/g03.png","z":0.0622},{"file":"img/galaxies/g04.png","z":0.0783},
+{"file":"img/galaxies/g05.png","z":0.0932},{"file":"img/galaxies/g06.png","z":0.1088},
+{"file":"img/galaxies/g07.png","z":0.1233},{"file":"img/galaxies/g08.png","z":0.1398},
+{"file":"img/galaxies/g09.png","z":0.1596},{"file":"img/galaxies/g10.png","z":0.1764},
+{"file":"img/galaxies/g11.png","z":0.1861},{"file":"img/galaxies/g12.png","z":0.2085},
+{"file":"img/galaxies/g13.png","z":0.2268},{"file":"img/galaxies/g14.png","z":0.2411},
+{"file":"img/galaxies/g15.png","z":0.2551}
+];
+
+const zToDist = z => 24 + z * 380;            // redshift -> 3D distance from Earth
+const N_SPREAD = 64;                          // fibonacci-sphere divisions for even directions
+function dir(i, n = N_SPREAD){                // even direction on a sphere for index i
+  const ga = Math.PI * (3 - Math.sqrt(5));
+  const t = (i + 0.5) / n, y = 1 - 2 * t, r = Math.sqrt(Math.max(0, 1 - y*y)), p = i * ga;
+  return new THREE.Vector3(Math.cos(p)*r, y*0.7, Math.sin(p)*r).normalize(); // squash y a bit
+}
+
+let inited = false, renderer, scene, camera, controls, earth, loader, anims = [], placeIdx = 0;
+const texCache = new THREE.TextureLoader();
+
+function makeLabel(text, color = '#bcd0ff'){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const x = c.getContext('2d');
+  x.font = 'bold 34px -apple-system,Segoe UI,Roboto,sans-serif';
+  x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(text, 128, 34);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
+  s.scale.set(11, 2.75, 1);
+  return s;
+}
+
+function earthTexture(){
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#0a2a6b'); g.addColorStop(.5, '#0d49ad'); g.addColorStop(1, '#08245c');
+  x.fillStyle = g; x.fillRect(0, 0, 512, 256);
+  for (let k = 0; k < 30; k++){
+    const cx = Math.random()*512, cy = 30 + Math.random()*196, r = 10 + Math.random()*38;
+    x.fillStyle = `rgba(${40+Math.random()*40},${110+Math.random()*70},${55+Math.random()*40},.92)`;
+    x.beginPath();
+    for (let a = 0; a <= 9; a++){ const ang = a/9*Math.PI*2, rr = r*(.55+Math.random()*.65);
+      x.lineTo(cx+Math.cos(ang)*rr, cy+Math.sin(ang)*rr); }
+    x.closePath(); x.fill();
+  }
+  x.fillStyle = 'rgba(232,242,255,.75)'; x.fillRect(0,0,512,15); x.fillRect(0,241,512,15);
+  return new THREE.CanvasTexture(c);
+}
+
+function ring(radius, color, op){
+  const pts = [];
+  for (let a = 0; a <= 128; a++){ const ang = a/128*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(ang)*radius, 0, Math.sin(ang)*radius)); }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: op }));
+}
+
+function addGalaxy(tex, z, isUser = false){
+  const d = zToDist(z), p = dir(placeIdx++).multiplyScalar(d);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sp = new THREE.Sprite(mat); sp.scale.set(0.01, 0.01, 1); sp.position.copy(p);
+  scene.add(sp);
+  const target = isUser ? 13 : 9;
+  const lab = makeLabel((isUser ? 'ẑ=' : 'z=') + z.toFixed(3), isUser ? '#ffd699' : '#bcd0ff');
+  lab.position.copy(p).add(new THREE.Vector3(0, -(target*0.5 + 2), 0)); scene.add(lab);
+  // expanding highlight ring on placement
+  const rg = new THREE.Mesh(new THREE.RingGeometry(target*0.6, target*0.72, 48),
+              new THREE.MeshBasicMaterial({ color: isUser ? 0xffd699 : 0x5b8cff, transparent: true, side: THREE.DoubleSide }));
+  rg.position.copy(p); scene.add(rg);
+  anims.push({ t: 0, sp, target, rg });
+  return sp;
+}
+
+function initScene(){
+  const canvas = document.getElementById('c3d');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x070b1a, 0.0016);
+  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 6000);
+  camera.position.set(35, 42, 145);
+
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.minDistance = 18; controls.maxDistance = 1200;
+  controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+  controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+  scene.add(new THREE.AmbientLight(0x6f86c6, 1.1));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(60, 40, 80); scene.add(sun);
+
+  // Earth + atmosphere
+  earth = new THREE.Mesh(new THREE.SphereGeometry(10, 48, 48),
+            new THREE.MeshStandardMaterial({ map: earthTexture(), roughness: 0.85, metalness: 0.05 }));
+  scene.add(earth);
+  const atmo = new THREE.Mesh(new THREE.SphereGeometry(11.4, 48, 48),
+            new THREE.MeshBasicMaterial({ color: 0x4a86ff, transparent: true, opacity: 0.16, side: THREE.BackSide }));
+  scene.add(atmo);
+  const eLab = makeLabel('EARTH', '#8ff0cf'); eLab.position.set(0, -14, 0); eLab.scale.set(13, 3.3, 1); scene.add(eLab);
+
+  // reference rings (redshift shells)
+  [zToDist(0.06), zToDist(0.14), zToDist(0.22)].forEach(rd => scene.add(ring(rd, 0x5b8cff, 0.13)));
+  const vr = ring(zToDist(0.14), 0x8a6bff, 0.08); vr.rotation.x = Math.PI/2; scene.add(vr);
+
+  // starfield
+  const sg = new THREE.BufferGeometry(), sp = [];
+  for (let k = 0; k < 1800; k++){
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(700 + Math.random()*2200); sp.push(v.x, v.y, v.z);
+  }
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+  scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xcfe0ff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.85 })));
+
+  // real galaxies
+  GALAXIES.forEach(g => {
+    const t = texCache.load(g.file); t.colorSpace = THREE.SRGBColorSpace;
+    addGalaxy(t, g.z, false);
+  });
+
+  resize();
+  new ResizeObserver(resize).observe(canvas.parentElement);
+  animate();
+}
+
+function resize(){
+  const el = renderer.domElement; const w = el.clientWidth, h = el.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  if (!renderer.domElement.offsetParent) return;     // slide hidden -> skip
+  const dt = clock.getDelta();
+  earth.rotation.y += dt * 0.05;
+  for (let k = anims.length - 1; k >= 0; k--){
+    const a = anims[k]; a.t += dt;
+    const e = Math.min(1, a.t / 0.6), s = a.target * (1 - Math.pow(1 - e, 3));
+    a.sp.scale.set(s, s, 1);
+    if (a.rg){ a.rg.scale.setScalar(1 + a.t*4); a.rg.material.opacity = Math.max(0, 0.8 - a.t*1.1);
+      a.rg.lookAt(camera.position); if (a.t > 0.8){ scene.remove(a.rg); a.rg.geometry.dispose(); a.rg = null; } }
+    if (a.t > 1 && !a.rg) anims.splice(k, 1);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// init lazily the first time the slide is shown (canvas has size only when visible)
+const slide = document.getElementById('slide3d');
+new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting && !inited){ inited = true; initScene(); }
+  else if (e.isIntersecting && inited){ resize(); }
+})).observe(slide);
+
+// --- form: "predict" a mocked z and drop the image into 3D ---
+const form = document.getElementById('zform');
+const out = document.getElementById('zout');
+form.addEventListener('submit', ev => {
+  ev.preventDefault();
+  if (!inited){ initScene(); inited = true; }
+  // mock prediction: random z, nudged by brightness so it feels responsive
+  const magr = parseFloat(form.mag_r.value) || 17;
+  const z = Math.min(0.39, Math.max(0.02, (magr - 14) / 12 * 0.5 + (Math.random() - 0.5) * 0.18));
+  const place = tex => {
+    addGalaxy(tex, z, true);
+    out.innerHTML = `predicted <b>ẑ = ${z.toFixed(3)}</b><br>placed at ~${Math.round(zToDist(z))} units from Earth`;
+  };
+  const f = document.getElementById('imgfile').files[0];
+  if (f){
+    const url = URL.createObjectURL(f);
+    texCache.load(url, t => { t.colorSpace = THREE.SRGBColorSpace; place(t); URL.revokeObjectURL(url); });
+  } else {
+    // no upload -> synth a colored cutout so the demo still works
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    const grd = x.createRadialGradient(32,32,2,32,32,32);
+    grd.addColorStop(0,'#fff'); grd.addColorStop(.3,'#ffd28a'); grd.addColorStop(1,'rgba(180,123,255,0)');
+    x.fillStyle = '#05060d'; x.fillRect(0,0,64,64); x.fillStyle = grd; x.beginPath(); x.arc(32,32,30,0,7); x.fill();
+    place(new THREE.CanvasTexture(c));
+  }
+});
+</script>
 </body>
 </html>
