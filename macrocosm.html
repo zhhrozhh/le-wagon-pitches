@@ -432,7 +432,7 @@ function dir(i, n = N_SPREAD){                // even direction on a sphere for 
   return new THREE.Vector3(Math.cos(p)*r, y*0.7, Math.sin(p)*r).normalize(); // squash y a bit
 }
 
-let inited = false, renderer, scene, camera, controls, earth, loader, anims = [], placeIdx = 0;
+let inited = false, renderer, scene, camera, controls, earth, anims = [], placeIdx = 0;
 const texCache = new THREE.TextureLoader();
 
 function makeLabel(text, color = '#bcd0ff'){
@@ -474,10 +474,12 @@ function ring(radius, color, op){
 
 function addGalaxy(tex, z, isUser = false){
   const d = zToDist(z), p = dir(placeIdx++).multiplyScalar(d);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  // additive blending: black cutout background vanishes, bright galaxy core glows
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false,
+              blending: isUser ? THREE.NormalBlending : THREE.AdditiveBlending });
   const sp = new THREE.Sprite(mat); sp.scale.set(0.01, 0.01, 1); sp.position.copy(p);
   scene.add(sp);
-  const target = isUser ? 13 : 9;
+  const target = isUser ? 15 : 12;
   const lab = makeLabel((isUser ? 'ẑ=' : 'z=') + z.toFixed(3), isUser ? '#ffd699' : '#bcd0ff');
   lab.position.copy(p).add(new THREE.Vector3(0, -(target*0.5 + 2), 0)); scene.add(lab);
   // expanding highlight ring on placement
