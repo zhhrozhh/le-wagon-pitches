@@ -145,6 +145,11 @@
   .viz-help{position:absolute;left:26px;bottom:20px;z-index:3;pointer-events:none;font-size:13.5px;color:var(--muted);
     background:rgba(8,12,28,.55);border:1px solid var(--line);border-radius:10px;padding:8px 13px;line-height:1.6}
   .viz-help b{color:#cfe0ff}
+  .viz-scale{position:absolute;right:26px;bottom:20px;z-index:3;pointer-events:none;text-align:center}
+  .viz-scale .vs-bar{height:7px;border:2px solid #cfe0ff;border-top:none;width:150px;margin:0 auto;transition:width .08s linear}
+  .viz-scale .vs-lab{font-size:14px;font-weight:700;color:#fff;margin-top:6px;font-variant-numeric:tabular-nums;
+    background:rgba(8,12,28,.6);border:1px solid var(--line);border-radius:8px;padding:3px 11px;display:inline-block}
+  .viz-scale .vs-sub{font-size:11.5px;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
   .viz-form{position:absolute;right:22px;top:22px;z-index:3;width:326px;background:rgba(8,12,28,.84);
     border:1px solid var(--line);border-radius:16px;padding:17px 19px;backdrop-filter:blur(10px);box-shadow:0 24px 60px rgba(0,0,0,.55)}
   .viz-form h4{font-size:16px;color:#fff;margin-bottom:3px}
@@ -391,6 +396,11 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
       <div class="viz-out" id="zout">awaiting input…</div>
     </form>
     <div class="viz-help"><b>Right-drag</b> rotate · <b>Middle-drag</b> pan · <b>Wheel</b> zoom</div>
+    <div class="viz-scale" id="vscale">
+      <div class="vs-bar" id="vsBar"></div>
+      <div class="vs-lab" id="vsLab">—</div>
+      <div class="vs-sub" id="vsSub"></div>
+    </div>
   </section>
 
   <!-- ===== PAGE 1b: TASKS — primary goal pipeline ===== -->
@@ -529,6 +539,17 @@ function distGly(z, mode = DIST_MODE){        // real distance in Gly (table loo
 const SCENE_BASE = 20, SCENE_SCALE = 30;      // Gly -> scene units
 const sceneDist = z => SCENE_BASE + distGly(z) * SCENE_SCALE;
 const labelText = (z, isUser) => (isUser ? 'ẑ=' : 'z=') + z.toFixed(3) + ' · ' + distGly(z).toFixed(2) + ' Gly';
+const LY_PER_UNIT = 1e9 / SCENE_SCALE;        // 1 scene unit = (1/SCENE_SCALE) Gly in light-years
+function niceNum(x){                           // largest 1/2/5 ×10ⁿ ≤ x
+  const p = Math.pow(10, Math.floor(Math.log10(x))), f = x / p;
+  return (f >= 5 ? 5 : f >= 2 ? 2 : 1) * p;
+}
+function fmtLy(ly){                             // adaptive unit: ly / kly / Mly / Gly
+  for (const [m, u] of [[1e9,'Gly'],[1e6,'Mly'],[1e3,'kly'],[1,'ly']]){
+    if (ly >= m){ const v = ly / m; return (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(0) : v.toFixed(0)) + ' ' + u; }
+  }
+  return ly.toFixed(0) + ' ly';
+}
 const N_SPREAD = 64;                          // fibonacci-sphere divisions for even directions
 function dir(i, n = N_SPREAD){                // even direction on a sphere for index i
   const ga = Math.PI * (3 - Math.sqrt(5));
@@ -669,6 +690,23 @@ function resize(){
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 
+// dynamic scale bar — recomputed each frame from camera zoom
+const vsBar = document.getElementById('vsBar'), vsLab = document.getElementById('vsLab'), vsSub = document.getElementById('vsSub');
+let lastScaleLab = '';
+function updateScale(){
+  const h = renderer.domElement.clientHeight; if (!h) return;
+  const D = camera.position.distanceTo(controls.target);
+  const worldPerPx = 2 * D * Math.tan(camera.fov * Math.PI / 360) / h;   // scene units per screen pixel
+  const TARGET_PX = 150;
+  const lyForTarget = TARGET_PX * worldPerPx * LY_PER_UNIT;              // ly spanned by 150 px
+  const nice = niceNum(lyForTarget);
+  vsBar.style.width = (nice / lyForTarget * TARGET_PX).toFixed(1) + 'px';
+  const lab = fmtLy(nice);
+  if (lab !== lastScaleLab){ vsLab.textContent = lab; lastScaleLab = lab; }
+  const pxPer1Ly = (1 / LY_PER_UNIT) / worldPerPx;                       // on-screen length of 1 ly
+  vsSub.textContent = '1 ly ≈ ' + pxPer1Ly.toExponential(1) + ' px';
+}
+
 const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
@@ -692,6 +730,7 @@ function animate(){
     if (a.t > 1 && !a.rg) anims.splice(k, 1);
   }
   controls.update();
+  updateScale();
   renderer.render(scene, camera);
 }
 
