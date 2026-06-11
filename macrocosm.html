@@ -137,6 +137,11 @@
   .viz-hud .vt{font-size:25px;font-weight:800;letter-spacing:-.01em;color:#fff}
   .viz-hud .vt span{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.14em;text-transform:uppercase;margin-left:6px}
   .viz-hud .vs{font-size:14px;color:var(--muted);margin-top:5px;max-width:42ch}
+  .viz-ctrl{position:absolute;left:26px;top:122px;z-index:3}
+  .viz-ctrl label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:flex;flex-direction:column;gap:6px}
+  .viz-ctrl select{background:rgba(8,12,28,.86);border:1px solid var(--line);border-radius:9px;color:#fff;
+    font-size:14px;padding:8px 12px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;min-width:240px}
+  .viz-ctrl select:focus,.viz-ctrl select:hover{border-color:var(--accent)}
   .viz-help{position:absolute;left:26px;bottom:20px;z-index:3;pointer-events:none;font-size:13.5px;color:var(--muted);
     background:rgba(8,12,28,.55);border:1px solid var(--line);border-radius:10px;padding:8px 13px;line-height:1.6}
   .viz-help b{color:#cfe0ff}
@@ -346,7 +351,7 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
       <div class="rcard">
         <div class="rrow"><span class="rk">Galaxy</span><span class="rv">SDSS J1542+0203</span></div>
         <div class="rrow"><span class="rk">Predicted ẑ</span><span class="rv good">0.231</span></div>
-        <div class="rrow"><span class="rk">Distance</span><span class="rv">≈ 2.9 Gly</span></div>
+        <div class="rrow"><span class="rk">Distance</span><span class="rv">≈ 2.8 Gly <span style="color:#9fb0d8;font-size:14px">(light-travel)</span></span></div>
         <div class="rrow"><span class="rk">Input</span><span class="rv tag">64 × 64 × 5 image</span></div>
         <div class="rexp">Estimated straight from imaging in <b>~8 ms</b> — versus hours of spectroscopy for the same galaxy.</div>
       </div>
@@ -358,7 +363,16 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
     <canvas id="c3d"></canvas>
     <div class="viz-hud">
       <div class="vt">Macrocosm Explorer <span>concept</span></div>
-      <div class="vs">Earth at the center · 15 real SDSS galaxies placed by predicted redshift — closer = lower z, farther = higher z.</div>
+      <div class="vs">Earth at the center · 15 real SDSS galaxies placed at their true distance — farther = higher z.</div>
+    </div>
+    <div class="viz-ctrl">
+      <label>Distance metric
+        <select id="distmode">
+          <option value="lookback">Light-travel · how long ago</option>
+          <option value="comoving">Comoving · true distance now</option>
+          <option value="luminosity">Luminosity distance</option>
+        </select>
+      </label>
     </div>
     <form class="viz-form" id="zform" autocomplete="off">
       <h4>Predict &amp; place a galaxy</h4>
@@ -486,7 +500,35 @@ const GALAXIES = [
 {"file":"img/galaxies/g15.png","z":0.2551}
 ];
 
-const zToDist = z => 24 + z * 380;            // redshift -> 3D distance from Earth
+// z -> distance lookup table, precomputed in Python (astropy, Planck18). JS only interpolates.
+// columns: [z, comoving, lightTravel, luminosity]  in Gly
+const DIST_TABLE = [
+[0.0,0.0,0.0,0.0],[0.01,0.1442,0.1435,0.1456],[0.02,0.2877,0.2848,0.2934],[0.03,0.4305,0.4242,0.4434],
+[0.04,0.5726,0.5615,0.5955],[0.05,0.7141,0.6969,0.7498],[0.06,0.8548,0.8303,0.9061],[0.07,0.9949,0.9618,1.0645],
+[0.08,1.1342,1.0914,1.225],[0.09,1.2729,1.2192,1.3874],[0.1,1.4108,1.3452,1.5519],[0.11,1.5481,1.4694,1.7184],
+[0.12,1.6846,1.5919,1.8868],[0.13,1.8205,1.7126,2.0571],[0.14,1.9556,1.8317,2.2294],[0.15,2.09,1.9491,2.4035],
+[0.16,2.2237,2.0648,2.5795],[0.17,2.3567,2.179,2.7573],[0.18,2.489,2.2916,2.937],[0.19,2.6205,2.4026,3.1184],
+[0.2,2.7514,2.5121,3.3017],[0.21,2.8815,2.6201,3.4866],[0.22,3.0109,2.7266,3.6733],[0.23,3.1396,2.8316,3.8617],
+[0.24,3.2676,2.9353,4.0518],[0.25,3.3949,3.0375,4.2436],[0.26,3.5214,3.1383,4.437],[0.27,3.6473,3.2378,4.6321],
+[0.28,3.7724,3.336,4.8287],[0.29,3.8968,3.4328,5.0269],[0.3,4.0206,3.5283,5.2267],[0.31,4.1436,3.6226,5.4281],
+[0.32,4.2658,3.7156,5.6309],[0.33,4.3874,3.8073,5.8353],[0.34,4.5083,3.8979,6.0411],[0.35,4.6285,3.9873,6.2485],
+[0.36,4.748,4.0754,6.4572],[0.37,4.8668,4.1624,6.6675],[0.38,4.9848,4.2483,6.8791],[0.39,5.1022,4.3331,7.0921],
+[0.4,5.2189,4.4167,7.3065],[0.41,5.3349,4.4993,7.5222],[0.42,5.4502,4.5808,7.7393],[0.43,5.5649,4.6612,7.9578],
+[0.44,5.6788,4.7407,8.1775],[0.45,5.7921,4.819,8.3985]
+];
+const MODE_COL = { comoving: 1, lookback: 2, luminosity: 3 };
+let DIST_MODE = 'lookback';                   // light-travel distance by default
+function distGly(z, mode = DIST_MODE){        // real distance in Gly (table lookup + linear interp)
+  const col = MODE_COL[mode], T = DIST_TABLE, last = T.length - 1;
+  if (z <= 0) return 0;
+  if (z >= T[last][0]) return T[last][col];
+  let i = 1; while (i < T.length && T[i][0] < z) i++;
+  const a = T[i-1], b = T[i], f = (z - a[0]) / (b[0] - a[0]);
+  return a[col] + f * (b[col] - a[col]);
+}
+const SCENE_BASE = 20, SCENE_SCALE = 30;      // Gly -> scene units
+const sceneDist = z => SCENE_BASE + distGly(z) * SCENE_SCALE;
+const labelText = (z, isUser) => (isUser ? 'ẑ=' : 'z=') + z.toFixed(3) + ' · ' + distGly(z).toFixed(2) + ' Gly';
 const N_SPREAD = 64;                          // fibonacci-sphere divisions for even directions
 function dir(i, n = N_SPREAD){                // even direction on a sphere for index i
   const ga = Math.PI * (3 - Math.sqrt(5));
@@ -495,17 +537,22 @@ function dir(i, n = N_SPREAD){                // even direction on a sphere for 
 }
 
 let inited = false, renderer, scene, camera, controls, earth, anims = [], placeIdx = 0;
+const galaxyObjs = [], shellRings = [];       // registries so distance-mode switch can reposition
 const texCache = new THREE.TextureLoader();
 
 function makeLabel(text, color = '#bcd0ff'){
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const c = document.createElement('canvas'); c.width = 340; c.height = 64;
   const x = c.getContext('2d');
-  x.font = 'bold 34px -apple-system,Segoe UI,Roboto,sans-serif';
-  x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText(text, 128, 34);
-  const t = new THREE.CanvasTexture(c); t.anisotropy = 4;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
-  s.scale.set(11, 2.75, 1);
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.scale.set(15, 2.82, 1);
+  s.userData.draw = (txt, col = color) => {
+    x.clearRect(0, 0, c.width, c.height);
+    x.font = 'bold 30px -apple-system,Segoe UI,Roboto,sans-serif';
+    x.fillStyle = col; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(txt, 170, 34); tex.needsUpdate = true;
+  };
+  s.userData.draw(text);
   return s;
 }
 
@@ -527,29 +574,45 @@ function earthTexture(){
   return new THREE.CanvasTexture(c);
 }
 
-function ring(radius, color, op){
+function ring(color, op){                      // unit circle in XZ plane; radius set via .scale
   const pts = [];
-  for (let a = 0; a <= 128; a++){ const ang = a/128*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(ang)*radius, 0, Math.sin(ang)*radius)); }
+  for (let a = 0; a <= 128; a++){ const ang = a/128*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang))); }
   const geo = new THREE.BufferGeometry().setFromPoints(pts);
   return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: op }));
 }
+function addShells(){                          // reference redshift shells at fixed z, scaled to current mode
+  [0.06, 0.14, 0.22].forEach(zs => { const r = ring(0x5b8cff, 0.13); scene.add(r); shellRings.push({ r, z: zs }); });
+  const vr = ring(0x8a6bff, 0.08); vr.rotation.x = Math.PI/2; scene.add(vr); shellRings.push({ r: vr, z: 0.14 });
+  updateShells();
+}
+const updateShells = () => shellRings.forEach(s => s.r.scale.setScalar(sceneDist(s.z)));
 
 function addGalaxy(tex, z, isUser = false){
-  const d = zToDist(z), p = dir(placeIdx++).multiplyScalar(d);
+  const dirVec = dir(placeIdx++), scale = isUser ? 15 : 12;
+  const p = dirVec.clone().multiplyScalar(sceneDist(z));
   // additive blending: black cutout background vanishes, bright galaxy core glows
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false,
               blending: isUser ? THREE.NormalBlending : THREE.AdditiveBlending });
   const sp = new THREE.Sprite(mat); sp.scale.set(0.01, 0.01, 1); sp.position.copy(p);
   scene.add(sp);
-  const target = isUser ? 15 : 12;
-  const lab = makeLabel((isUser ? 'ẑ=' : 'z=') + z.toFixed(3), isUser ? '#ffd699' : '#bcd0ff');
-  lab.position.copy(p).add(new THREE.Vector3(0, -(target*0.5 + 2), 0)); scene.add(lab);
+  const lab = makeLabel(labelText(z, isUser), isUser ? '#ffd699' : '#bcd0ff');
+  lab.position.copy(p).add(new THREE.Vector3(0, -(scale*0.5 + 2), 0)); scene.add(lab);
   // expanding highlight ring on placement
-  const rg = new THREE.Mesh(new THREE.RingGeometry(target*0.6, target*0.72, 48),
+  const rg = new THREE.Mesh(new THREE.RingGeometry(scale*0.6, scale*0.72, 48),
               new THREE.MeshBasicMaterial({ color: isUser ? 0xffd699 : 0x5b8cff, transparent: true, side: THREE.DoubleSide }));
   rg.position.copy(p); scene.add(rg);
-  anims.push({ t: 0, sp, target, rg });
+  anims.push({ t: 0, sp, target: scale, rg });
+  galaxyObjs.push({ sp, lab, z, dirVec, scale, isUser, tween: null });
   return sp;
+}
+// switch distance metric -> recompute every position & label, tween smoothly
+function setMode(mode){
+  DIST_MODE = mode;
+  updateShells();
+  galaxyObjs.forEach(g => {
+    g.tween = g.dirVec.clone().multiplyScalar(sceneDist(g.z));
+    g.lab.userData.draw(labelText(g.z, g.isUser));
+  });
 }
 
 function initScene(){
@@ -579,9 +642,7 @@ function initScene(){
   scene.add(atmo);
   const eLab = makeLabel('EARTH', '#8ff0cf'); eLab.position.set(0, -14, 0); eLab.scale.set(13, 3.3, 1); scene.add(eLab);
 
-  // reference rings (redshift shells)
-  [zToDist(0.06), zToDist(0.14), zToDist(0.22)].forEach(rd => scene.add(ring(rd, 0x5b8cff, 0.13)));
-  const vr = ring(zToDist(0.14), 0x8a6bff, 0.08); vr.rotation.x = Math.PI/2; scene.add(vr);
+  addShells();   // reference redshift shells (reposition on distance-mode change)
 
   // starfield
   const sg = new THREE.BufferGeometry(), sp = [];
@@ -614,6 +675,14 @@ function animate(){
   if (!renderer.domElement.offsetParent) return;     // slide hidden -> skip
   const dt = clock.getDelta();
   earth.rotation.y += dt * 0.05;
+  // smooth reposition when distance metric changes
+  const lerpF = Math.min(1, dt * 4);
+  for (const g of galaxyObjs){
+    if (!g.tween) continue;
+    g.sp.position.lerp(g.tween, lerpF);
+    g.lab.position.copy(g.sp.position).add(new THREE.Vector3(0, -(g.scale*0.5 + 2), 0));
+    if (g.sp.position.distanceTo(g.tween) < 0.25){ g.sp.position.copy(g.tween); g.tween = null; }
+  }
   for (let k = anims.length - 1; k >= 0; k--){
     const a = anims[k]; a.t += dt;
     const e = Math.min(1, a.t / 0.6), s = a.target * (1 - Math.pow(1 - e, 3));
@@ -644,7 +713,7 @@ form.addEventListener('submit', ev => {
   const z = Math.min(0.39, Math.max(0.02, (magr - 14) / 12 * 0.5 + (Math.random() - 0.5) * 0.18));
   const place = tex => {
     addGalaxy(tex, z, true);
-    out.innerHTML = `predicted <b>ẑ = ${z.toFixed(3)}</b><br>placed at ~${Math.round(zToDist(z))} units from Earth`;
+    out.innerHTML = `predicted <b>ẑ = ${z.toFixed(3)}</b><br>${distGly(z).toFixed(2)} Gly away · ${DIST_MODE} distance`;
   };
   const f = document.getElementById('imgfile').files[0];
   if (f){
@@ -659,6 +728,10 @@ form.addEventListener('submit', ev => {
     place(new THREE.CanvasTexture(c));
   }
 });
+
+// --- distance-metric dropdown: re-render galaxy positions ---
+const distSel = document.getElementById('distmode');
+distSel.addEventListener('change', () => { if (inited) setMode(distSel.value); });
 </script>
 </body>
 </html>
