@@ -368,7 +368,7 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
     <canvas id="c3d"></canvas>
     <div class="viz-hud">
       <div class="vt">Macrocosm Explorer <span>concept</span></div>
-      <div class="vs">Earth at the center · 15 real SDSS galaxies placed at their true distance — farther = higher z.</div>
+      <div class="vs">Earth at the center · 15 real SDSS galaxies at their true sky direction (RA/Dec) and true distance (z).</div>
     </div>
     <div class="viz-ctrl">
       <label>Distance metric
@@ -381,7 +381,7 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
     </div>
     <form class="viz-form" id="zform" autocomplete="off">
       <h4>Predict &amp; place a galaxy</h4>
-      <div class="fsub">Enter photometry + a 64×64 cutout. The model returns ẑ → we drop the image into 3D at its distance. <i>(demo: ẑ is mocked)</i></div>
+      <div class="fsub">Photometry + a 64×64 cutout → model returns ẑ (distance). RA/Dec set the true sky direction. <i>(demo: ẑ is mocked)</i></div>
       <div class="fgrid">
         <label>mag_u<input type="number" step="0.01" name="mag_u" value="19.4"></label>
         <label>mag_g<input type="number" step="0.01" name="mag_g" value="18.1"></label>
@@ -389,6 +389,10 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
         <label>mag_i<input type="number" step="0.01" name="mag_i" value="16.9"></label>
         <label>mag_z<input type="number" step="0.01" name="mag_z" value="16.6"></label>
         <label>size_r<input type="number" step="0.1" name="size_r" value="3.2"></label>
+      </div>
+      <div class="fgrid" style="grid-template-columns:1fr 1fr">
+        <label>RA (deg, ICRS)<input type="number" step="0.0001" min="0" max="360" name="ra" value="185.0" required></label>
+        <label>Dec (deg, ICRS)<input type="number" step="0.0001" min="-90" max="90" name="dec" value="15.0" required></label>
       </div>
       <div class="viz-file">64×64 image (ugriz cutout / any PNG)
         <input type="file" id="imgfile" accept="image/*"></div>
@@ -499,15 +503,16 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // --- real SDSS DR17 sample (image + redshift), generated offline via astroquery ---
+// real DR17 sample: image + redshift + true sky position (RA/Dec, ICRS/J2000)
 const GALAXIES = [
-{"file":"img/galaxies/g01.png","z":0.0297},{"file":"img/galaxies/g02.png","z":0.0459},
-{"file":"img/galaxies/g03.png","z":0.0622},{"file":"img/galaxies/g04.png","z":0.0783},
-{"file":"img/galaxies/g05.png","z":0.0932},{"file":"img/galaxies/g06.png","z":0.1088},
-{"file":"img/galaxies/g07.png","z":0.1233},{"file":"img/galaxies/g08.png","z":0.1398},
-{"file":"img/galaxies/g09.png","z":0.1596},{"file":"img/galaxies/g10.png","z":0.1764},
-{"file":"img/galaxies/g11.png","z":0.1861},{"file":"img/galaxies/g12.png","z":0.2085},
-{"file":"img/galaxies/g13.png","z":0.2268},{"file":"img/galaxies/g14.png","z":0.2411},
-{"file":"img/galaxies/g15.png","z":0.2551}
+{"file":"img/galaxies/g01.png","z":0.0297,"ra":206.3138,"dec":23.3165},{"file":"img/galaxies/g02.png","z":0.0459,"ra":223.5678,"dec":16.9028},
+{"file":"img/galaxies/g03.png","z":0.0622,"ra":322.2961,"dec":10.527},{"file":"img/galaxies/g04.png","z":0.0783,"ra":354.586,"dec":-11.0057},
+{"file":"img/galaxies/g05.png","z":0.0932,"ra":180.583,"dec":56.5727},{"file":"img/galaxies/g06.png","z":0.1088,"ra":258.8099,"dec":32.9901},
+{"file":"img/galaxies/g07.png","z":0.1233,"ra":174.3606,"dec":52.7828},{"file":"img/galaxies/g08.png","z":0.1398,"ra":155.7196,"dec":12.6589},
+{"file":"img/galaxies/g09.png","z":0.1596,"ra":241.095,"dec":30.0402},{"file":"img/galaxies/g10.png","z":0.1764,"ra":202.5979,"dec":48.483},
+{"file":"img/galaxies/g11.png","z":0.1861,"ra":154.8596,"dec":8.1157},{"file":"img/galaxies/g12.png","z":0.2085,"ra":331.3649,"dec":2.4719},
+{"file":"img/galaxies/g13.png","z":0.2268,"ra":257.6316,"dec":44.4615},{"file":"img/galaxies/g14.png","z":0.2411,"ra":19.8089,"dec":27.4085},
+{"file":"img/galaxies/g15.png","z":0.2551,"ra":152.5102,"dec":48.1102}
 ];
 
 // z -> distance lookup table, precomputed in Python (astropy, Planck18). JS only interpolates.
@@ -550,11 +555,16 @@ function fmtLy(ly){                             // adaptive unit: ly / kly / Mly
   }
   return ly.toFixed(0) + ' ly';
 }
-const N_SPREAD = 64;                          // fibonacci-sphere divisions for even directions
-function dir(i, n = N_SPREAD){                // even direction on a sphere for index i
+// real sky direction from RA/Dec (deg, ICRS) -> unit vector on the celestial sphere (Dec -> y/north)
+function raDecToDir(ra, dec){
+  const r = ra * Math.PI / 180, d = dec * Math.PI / 180, cd = Math.cos(d);
+  return new THREE.Vector3(cd * Math.cos(r), Math.sin(d), cd * Math.sin(r));
+}
+const N_SPREAD = 64;                          // fibonacci fallback (used only if no RA/Dec given)
+function dir(i, n = N_SPREAD){
   const ga = Math.PI * (3 - Math.sqrt(5));
   const t = (i + 0.5) / n, y = 1 - 2 * t, r = Math.sqrt(Math.max(0, 1 - y*y)), p = i * ga;
-  return new THREE.Vector3(Math.cos(p)*r, y*0.7, Math.sin(p)*r).normalize(); // squash y a bit
+  return new THREE.Vector3(Math.cos(p)*r, y*0.7, Math.sin(p)*r).normalize();
 }
 
 let inited = false, renderer, scene, camera, controls, earth, anims = [], placeIdx = 0;
@@ -608,8 +618,8 @@ function addShells(){                          // reference redshift shells at f
 }
 const updateShells = () => shellRings.forEach(s => s.r.scale.setScalar(sceneDist(s.z)));
 
-function addGalaxy(tex, z, isUser = false){
-  const dirVec = dir(placeIdx++), scale = isUser ? 15 : 12;
+function addGalaxy(tex, z, isUser = false, dirVec = null){
+  dirVec = dirVec || dir(placeIdx++); const scale = isUser ? 15 : 12;
   const p = dirVec.clone().multiplyScalar(sceneDist(z));
   // additive blending: black cutout background vanishes, bright galaxy core glows
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false,
@@ -673,10 +683,10 @@ function initScene(){
   sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
   scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xcfe0ff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.85 })));
 
-  // real galaxies
+  // real galaxies — placed at their true sky direction (RA/Dec) and true distance (z)
   GALAXIES.forEach(g => {
     const t = texCache.load(g.file); t.colorSpace = THREE.SRGBColorSpace;
-    addGalaxy(t, g.z, false);
+    addGalaxy(t, g.z, false, raDecToDir(g.ra, g.dec));
   });
 
   resize();
@@ -750,9 +760,11 @@ form.addEventListener('submit', ev => {
   // mock prediction: random z, nudged by brightness so it feels responsive
   const magr = parseFloat(form.mag_r.value) || 17;
   const z = Math.min(0.39, Math.max(0.02, (magr - 14) / 12 * 0.5 + (Math.random() - 0.5) * 0.18));
+  const ra = parseFloat(form.ra.value), dec = parseFloat(form.dec.value);
+  if (!Number.isFinite(ra) || !Number.isFinite(dec)){ out.textContent = 'enter RA & Dec first'; return; }
   const place = tex => {
-    addGalaxy(tex, z, true);
-    out.innerHTML = `predicted <b>ẑ = ${z.toFixed(3)}</b><br>${distGly(z).toFixed(2)} Gly away · ${DIST_MODE} distance`;
+    addGalaxy(tex, z, true, raDecToDir(ra, dec));
+    out.innerHTML = `predicted <b>ẑ = ${z.toFixed(3)}</b> · ${distGly(z).toFixed(2)} Gly (${DIST_MODE})<br>sky dir RA ${ra.toFixed(1)}° · Dec ${dec.toFixed(1)}°`;
   };
   const f = document.getElementById('imgfile').files[0];
   if (f){
