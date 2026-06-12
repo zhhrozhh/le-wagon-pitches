@@ -227,7 +227,7 @@
   <section class="slide">
     <span class="badge p">The signal, by eye</span>
     <h1>You can almost <i>see</i> the distance</h1>
-    <div class="sub">15 real SDSS galaxies, ordered by their true redshift — watch them shrink and redden as they get farther away</div>
+    <div class="sub">8 real SDSS galaxies, ordered by their true redshift — watch them shrink and redden as they get farther away</div>
     <img class="sample" src="img/dr17_gallery.png" alt="Real SDSS DR17 galaxy cutouts ordered by redshift">
     <p class="imgcap">That visible trend — fainter, smaller, redder with distance — <b class="hl">is</b> what the model learns to read. No spectrum needed.</p>
   </section>
@@ -298,12 +298,12 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
       <div class="diagram"><span class="b1">X_img (64,64,5)</span> ──► [ Conv×4 → BN → GlobalAvgPool ] ──► <span class="b1">img_feat (128)</span>
                                                     │
                                                     ▼  <span class="ar">concat</span>
-<span class="b2">X_tab (13)</span> ──────────► [ StandardScaler / BN ] ──────► [ Dense 64 → Dense 32 ] ──► <span class="out">ẑ  (redshift)</span></div>
+<span class="b2">X_tab (n)</span> ──────────► [ StandardScaler / BN ] ──────► [ Dense 64 → Dense 32 ] ──► <span class="out">ẑ  (redshift)</span></div>
     </div>
     <div class="row">
       <div class="box">
         <h3>Baseline → Main</h3>
-        <p><b class="hl">Baseline:</b> XGBoost on the 13 tabular features → z. Trains in seconds, sets the bar &amp; wires the webapp early.</p>
+        <p><b class="hl">Baseline:</b> XGBoost on the tabular features → z. Trains in seconds, sets the bar &amp; wires the webapp early.</p>
         <p style="margin-top:10px"><b class="hl">Main:</b> small CNN on (64,64,5) arcsinh-stretched cutouts, then <b class="hl">fuse</b> image features + tabular into a dense head.</p>
       </div>
       <div class="box">
