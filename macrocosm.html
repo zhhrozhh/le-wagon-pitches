@@ -405,8 +405,8 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
       </div>
       <div class="tgroup">
         <div class="th">4 · Modeling &amp; validation <span class="day">Day 3–6</span></div>
-        <div class="t">Baseline: XGBoost on tabular</div>
-        <div class="t">Main: CNN on (64,64,5) cutouts</div>
+        <div class="t">Baseline: XGBoost on tabular features</div>
+        <div class="t">Main: CNN on (64,64,5), fused with tabular (random-mask = optional)</div>
         <div class="t">Metrics: σ_MAD, bias, outlier rate; z_pred vs z_spec plot</div>
       </div>
       <div class="tgroup">
@@ -417,9 +417,9 @@ img = np.stack([cutout(ra,dec,b) <span class="k">for</span> b <span class="k">in
       </div>
       <div class="tgroup">
         <div class="th">6 · Webapp + deploy <span class="day">Day 2 → 8–10</span></div>
-        <div class="t">FastAPI + Streamlit; wire link with baseline early</div>
-        <div class="t">Swap in final CNN; show z + distance</div>
-        <div class="t">Deploy + rehearse the demo</div>
+        <div class="t">FastAPI inference API + interactive 3D explorer; wire to baseline early</div>
+        <div class="t">Swap in final model; predict z → distance, pin in 3D</div>
+        <div class="t">Dockerize → Cloud Run / GHCR (→ VPS); rehearse demo</div>
       </div>
     </div>
   </section>
